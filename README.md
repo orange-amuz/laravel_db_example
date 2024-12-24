@@ -33,3 +33,11 @@
 292.521097 // app/Console/Commands/test.php:164
 309.732434 // app/Console/Commands/test.php:164
 ```
+
+### 요구사항 재확인 후 테스트
+
+```shell
+array:2 [
+  0 => 1263.858726
+]
+```

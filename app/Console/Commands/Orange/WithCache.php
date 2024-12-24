@@ -69,7 +69,7 @@ class WithCache extends Command
                     $previous = self::$previousMultiTags[$eqpId] ?? array();
 
                     /** @var Carbon $startedAt, $endedAt */
-                    $startedAt = is_null($previous['ended_at'] ?? null) ? null : Carbon::create($previous['ended_at']);
+                    $startedAt = $previous['ended_at'] == null ? null : Carbon::create($previous['ended_at']);
                     $startState = $previous['end_state'] ?? null;
                     $endedAt = $multiTag->getAttribute('EventTime');
                     $endState = $multiTag->getAttribute('TAG_Value');
@@ -101,7 +101,7 @@ class WithCache extends Command
                     $alarmEndedAt = null;
                     $alarmMaintainTime = null;
 
-                    if($startedAt != null) {
+                    if($startState == 3) {
                     // if(self::$currentCount > 1000 && $startedAt != null) {
                         // $grouped = MultiTag::query()
                         //     ->where('EventTime', '<=', $endedAt)
@@ -166,6 +166,7 @@ class WithCache extends Command
                             ->where('TAG_Type', 'Down_MCC')
                             ->orderBy('EventTime', 'ASC')
                             ->first();
+
                         $pauseInterval = $pauseRange?->getAttribute('TAG_Value');
 
                         /**
@@ -180,9 +181,9 @@ class WithCache extends Command
 
                         $alarm = AlarmHistory::query()
                             ->where('EQPID', $eqpId)
-                            ->where('EventFlag', 'S')
                             ->where('EventTime', '>', $startedAt->subSeconds(2))
                             ->where('EventTime', '<=', $endedAt)
+                            ->where('EventFlag', 'S')
                             ->orderBy('EventTime', 'ASC')
                             ->first();
                         $alarmStartedAt = $alarm?->getAttribute('EventTime');
@@ -191,14 +192,14 @@ class WithCache extends Command
                         if($alarmStartedAt != null) {
                             $alarmEndedAt = AlarmHistory::query()
                                 ->where('EQPID', $eqpId)
-                                ->where('EventFlag', 'E')
                                 ->where('EventTime', '>=', $alarmStartedAt)
+                                ->where('EventFlag', 'E')
                                 ->orderBy('EventTime', 'ASC')
                                 ->first()
                                 ?->getAttribute('EventTime');
                         }
 
-                        // TODO : $alarmEndedAt 이 null일 경우 스케줄러 작동하기
+                        // // TODO : $alarmEndedAt 이 null일 경우 스케줄러 작동하기
 
                         if($alarmStartedAt != null && $alarmEndedAt != null) {
                             $alarmMaintainTime = $alarmStartedAt->diffInMilliseconds($alarmEndedAt) / 1000;
@@ -228,7 +229,7 @@ class WithCache extends Command
 
                 Processed::query()->insert(self::$insertCache);
 
-                self::$insertCache = [];
+                self::$insertCache = array();
 
                 // dump(self::$totalStartedAt->diffInMilliseconds(Carbon::now()) / 1000);
             });

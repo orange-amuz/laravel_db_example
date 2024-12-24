@@ -74,7 +74,7 @@ class QueryOnly extends Command
                     $endedAt = $multiTag->getAttribute('EventTime');
                     $endState = $multiTag->getAttribute('TAG_Value');
 
-                    $maintainTime = is_null($startedAt) ? null : $startedAt->diffInMilliseconds($endedAt) / 1000;
+                    $maintainTime = is_null($startedAt) ? null : abs($startedAt->diffInMilliseconds($endedAt) / 1000);
 
                     $type = MultiTag::query()
                         ->where('TAG_Type', 'Control_State')
@@ -101,7 +101,7 @@ class QueryOnly extends Command
                     $alarmEndedAt = null;
                     $alarmMaintainTime = null;
 
-                    if($startedAt != null) {
+                    if($startState == 3) {
                         $pause = MultiTag::query()
                             ->where('EventTime', '>', $startedAt->subSeconds(2))
                             ->where('EventTime', '<=', $endedAt)
@@ -118,13 +118,14 @@ class QueryOnly extends Command
                             ->where('TAG_Type', 'Down_MCC')
                             ->orderBy('EventTime', 'ASC')
                             ->first();
+
                         $pauseInterval = $pauseRange?->getAttribute('TAG_Value');
 
                         $alarm = AlarmHistory::query()
                             ->where('EQPID', $eqpId)
-                            ->where('EventFlag', 'S')
                             ->where('EventTime', '>', $startedAt->subSeconds(2))
                             ->where('EventTime', '<=', $endedAt)
+                            ->where('EventFlag', 'S')
                             ->orderBy('EventTime', 'ASC')
                             ->first();
                         $alarmStartedAt = $alarm?->getAttribute('EventTime');
@@ -133,8 +134,9 @@ class QueryOnly extends Command
                         if($alarmStartedAt != null) {
                             $alarmEndedAt = AlarmHistory::query()
                                 ->where('EQPID', $eqpId)
-                                ->where('EventFlag', 'E')
+                                ->where('AlarmCode', $alarmCode)
                                 ->where('EventTime', '>=', $alarmStartedAt)
+                                ->where('EventFlag', 'E')
                                 ->orderBy('EventTime', 'ASC')
                                 ->first()
                                 ?->getAttribute('EventTime');
@@ -143,7 +145,7 @@ class QueryOnly extends Command
                         // TODO : $alarmEndedAt 이 null일 경우 스케줄러 작동하기
 
                         if($alarmStartedAt != null && $alarmEndedAt != null) {
-                            $alarmMaintainTime = $alarmStartedAt->diffInMilliseconds($alarmEndedAt) / 1000;
+                            $alarmMaintainTime = abs($alarmStartedAt->diffInMilliseconds($alarmEndedAt) / 1000);
                         }
                     }
 
@@ -152,8 +154,8 @@ class QueryOnly extends Command
                         'pause_type' => $pauseType,
                         'pause_reason' => $pauseReason,
                         'pause_interval' => $pauseInterval,
-                        'alarm_started_at' => $alarmStartedAt,
-                        'alarm_ended_at' => $alarmEndedAt,
+                        'alarm_started_at' => $alarmStartedAt?->format('Y-m-d H:i:s.v'),
+                        'alarm_ended_at' => $alarmEndedAt?->format('Y-m-d H:i:s.v'),
                         'alarm_code' => $alarmCode,
                         'alarm_maintain_time' => $alarmMaintainTime,
                     ]);
@@ -170,46 +172,48 @@ class QueryOnly extends Command
 
                 Processed::query()->insert(self::$insertCache);
 
-                self::$insertCache = [];
+                self::$insertCache = array();
 
                 // dump(self::$totalStartedAt->diffInMilliseconds(Carbon::now()) / 1000);
             });
 
-        self::$insertCache = [];
+        // self::$insertCache = [];
 
-        foreach(self::$previousMultiTags as $previous) {
-            $startedAt = is_null($previous['ended_at'] ?? null) ? null : Carbon::create($previous['ended_at']);
-            $startState = $previous['end_state'] ?? null;
+        // foreach(self::$previousMultiTags as $previous) {
+        //     $startedAt = is_null($previous['ended_at'] ?? null) ? null : Carbon::create($previous['ended_at']);
+        //     $startState = $previous['end_state'] ?? null;
 
-            $type = $startedAt == null ? null : MultiTag::query()
-                ->where('TAG_Type', 'Control_State')
-                ->where('EventTime', '<=', $startedAt)
-                ->orderBy('EventTime', 'DESC')
-                ->first()
-                ?->getAttribute('TAG_Value');
+        //     $type = $startedAt == null ? null : MultiTag::query()
+        //         ->where('TAG_Type', 'Control_State')
+        //         ->where('EventTime', '<=', $startedAt)
+        //         ->orderBy('EventTime', 'DESC')
+        //         ->first()
+        //         ?->getAttribute('TAG_Value');
 
-            $previous = [
-                'equipment_id' => $previous['equipment_id'],
-                'type' => $type,
-                'started_at' => $startedAt,
-                'start_state' => $startState,
-                'ended_at' => null,
-                'end_state' => null,
-                'maintain_time' => null,
-                'pause_type' => null,
-                'pause_reason' => null,
-                'pause_interval' => null,
-                'alarm_started_at' => null,
-                'alarm_ended_at' => null,
-                'alarm_code' => null,
-                'alarm_maintain_time' => null,
-            ];
+        //     $previous = [
+        //         'equipment_id' => $previous['equipment_id'],
+        //         'type' => $type,
+        //         'started_at' => $startedAt,
+        //         'start_state' => $startState,
+        //         'ended_at' => null,
+        //         'end_state' => null,
+        //         'maintain_time' => null,
+        //         'pause_type' => null,
+        //         'pause_reason' => null,
+        //         'pause_interval' => null,
+        //         'alarm_started_at' => null,
+        //         'alarm_ended_at' => null,
+        //         'alarm_code' => null,
+        //         'alarm_maintain_time' => null,
+        //     ];
 
-            self::$insertCache[] = $previous;
-        }
+        //     self::$insertCache[] = $previous;
+        // }
 
-        Processed::query()->insert(self::$insertCache);
+        // Processed::query()->insert(self::$insertCache);
 
         $totalEndedAt = Carbon::now();
+
+        dump('total time : ' . abs(self::$totalStartedAt->diffInMilliseconds($totalEndedAt) / 1000));
     }
 }
