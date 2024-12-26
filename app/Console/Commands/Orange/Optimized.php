@@ -2,29 +2,32 @@
 
 namespace App\Console\Commands\Orange;
 
-use App\Models\AlarmHistory;
+use App\Models\AlarmHistoryIndexed;
 use App\Models\MultiTag;
+use App\Models\MultiTagIndexed;
 use App\Models\Processed;
 use App\Services\CacheService;
 use Carbon\Carbon;
+use Database\Seeders\AlarmHistoryIndexedSeeder;
+use Database\Seeders\MultiTagIndexedSeeder;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
 
-class QueryOnly extends Command
+class Optimized extends Command
 {
     /**
      * The name and signature of the console command.
      *
      * @var string
      */
-    protected $signature = 'orange:query-only';
+    protected $signature = 'orange:optimized';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = "Orange's query only result";
+    protected $description = "Orange's optimized result";
 
     public static array $previousMultiTags;
 
@@ -43,46 +46,49 @@ class QueryOnly extends Command
     {
         ini_set('memory_limit', -1);
 
+        Processed::query()->truncate();
+        AlarmHistoryIndexed::query()->truncate();
+        MultiTagIndexed::query()->truncate();
+
         self::$tagTypes = Collection::empty();
         self::$previousMultiTags = array();
-
-        CacheService::boot();
-
-        Processed::query()->truncate();
-
         self::$totalCount = MultiTag::query()->where('TAG_Type', 'Equipment_State')->count();
         self::$currentCount = 0;
         self::$totalStartedAt = Carbon::now();
 
-        // use DP?
+        // 데이터 전처리 To Local DB
+        (new AlarmHistoryIndexedSeeder)->run(self::$totalStartedAt);
+        (new MultiTagIndexedSeeder)->run(self::$totalStartedAt);
+
 
         // 1. 정합
         // 2. 속도
 
-        MultiTag::query()
-            ->where('TAG_Type', 'Equipment_State')
-            ->orderBy('EventTime', 'ASC')
-            ->chunk(1000, function(Collection $multiTags) {
+        // 본격적인 가공된 데이터 생성
+        MultiTagIndexed::query()
+            ->where('tag_type', 'Equipment_State')
+            ->orderBy('event_time', 'ASC')
+            ->chunk(3000, function(Collection $multiTags) {
                 foreach($multiTags as $multiTag) {
-                    $eqpId = $multiTag->getAttribute('EQPID');
+                    $eqpId = $multiTag->getAttribute('equipment_id');
 
                     $previous = self::$previousMultiTags[$eqpId] ?? array();
 
                     /** @var Carbon $startedAt, $endedAt */
                     $startedAt = is_null($previous['ended_at'] ?? null) ? null : Carbon::create($previous['ended_at']);
                     $startState = $previous['end_state'] ?? null;
-                    $endedAt = $multiTag->getAttribute('EventTime');
-                    $endState = $multiTag->getAttribute('TAG_Value');
+                    $endedAt = $multiTag->getAttribute('event_time');
+                    $endState = $multiTag->getAttribute('tag_value');
 
                     $maintainTime = is_null($startedAt) ? null : abs($startedAt->diffInMilliseconds($endedAt) / 1000);
 
-                    $type = MultiTag::query()
-                        ->where('EQPID', $eqpId)
-                        ->where('TAG_Type', 'Control_State')
-                        ->where('EventTime', '<=', $endedAt)
-                        ->orderBy('EventTime', 'DESC')
+                    $type = MultiTagIndexed::query()
+                        ->where('equipment_id', $eqpId)
+                        ->where('tag_type', 'Control_State')
+                        ->where('event_time', '<=', $endedAt)
+                        ->orderBy('event_time', 'DESC')
                         ->first()
-                        ?->getAttribute('TAG_Value');
+                        ?->getAttribute('tag_value');
 
                     $previous = array_merge($previous, [
                         'equipment_id' => $eqpId,
@@ -103,44 +109,44 @@ class QueryOnly extends Command
                     $alarmMaintainTime = null;
 
                     if($startState == 3) {
-                        $pause = MultiTag::query()
-                            ->where('EQPID', $eqpId)
-                            ->where('EventTime', '>', $startedAt->subSeconds(2))
-                            ->where('EventTime', '<=', $endedAt)
-                            ->whereIn('TAG_Type', ['Auto_Stop', 'Manual_Stop'])
-                            ->orderBy('EventTime', 'ASC')
+                        $pause = MultiTagIndexed::query()
+                            ->where('equipment_id', $eqpId)
+                            ->whereIn('tag_type', ['Auto_Stop', 'Manual_Stop'])
+                            ->where('event_time', '>', $startedAt->subSeconds(2))
+                            ->where('event_time', '<=', $endedAt)
+                            ->orderBy('event_time', 'ASC')
                             ->first();
 
                         $pauseReason = $pause?->getAttribute('TAG_Value');
                         $pauseType = $pause?->getAttribute('TAG_Type');
 
-                        $pauseRange = MultiTag::query()
-                            ->where('EQPID', $eqpId)
-                            ->where('EventTime', '>', $startedAt->subSeconds(2))
-                            ->where('EventTime', '<=', $endedAt)
-                            ->where('TAG_Type', 'Down_MCC')
-                            ->orderBy('EventTime', 'ASC')
+                        $pauseRange = MultiTagIndexed::query()
+                            ->where('equipment_id', $eqpId)
+                            ->where('tag_type', 'Down_MCC')
+                            ->where('event_time', '>', $startedAt->subSeconds(2))
+                            ->where('event_time', '<=', $endedAt)
+                            ->orderBy('event_time', 'ASC')
                             ->first();
 
                         $pauseInterval = $pauseRange?->getAttribute('TAG_Value');
 
-                        $alarm = AlarmHistory::query()
-                            ->where('EQPID', $eqpId)
-                            ->where('EventTime', '>', $startedAt->subSeconds(2))
-                            ->where('EventTime', '<=', $endedAt)
-                            ->where('EventFlag', 'S')
-                            ->orderBy('EventTime', 'ASC')
+                        $alarm = AlarmHistoryIndexed::query()
+                            ->where('equipment_id', $eqpId)
+                            ->where('event_flag', 'S')
+                            ->where('event_time', '>', $startedAt->subSeconds(2))
+                            ->where('event_time', '<=', $endedAt)
+                            ->orderBy('event_time', 'ASC')
                             ->first();
                         $alarmStartedAt = $alarm?->getAttribute('EventTime');
                         $alarmCode = $alarm?->getAttribute('AlarmCode');
 
                         if($alarmStartedAt != null) {
-                            $alarmEndedAt = AlarmHistory::query()
-                                ->where('EQPID', $eqpId)
-                                ->where('AlarmCode', $alarmCode)
-                                ->where('EventTime', '>=', $alarmStartedAt)
-                                ->where('EventFlag', 'E')
-                                ->orderBy('EventTime', 'ASC')
+                            $alarmEndedAt = AlarmHistoryIndexed::query()
+                                ->where('equipment_id', $eqpId)
+                                ->where('alarm_code', $alarmCode)
+                                ->where('event_flag', 'E')
+                                ->where('event_time', '>=', $alarmStartedAt)
+                                ->orderBy('evnet_time', 'ASC')
                                 ->first()
                                 ?->getAttribute('EventTime');
                         }
@@ -179,44 +185,6 @@ class QueryOnly extends Command
 
                 // dump(self::$totalStartedAt->diffInMilliseconds(Carbon::now()) / 1000);
             });
-
-        // 원래의 조건대로라면 아래의 구문이 있어야하나, 장기적으로 이 커맨드를 돌릴 경우
-        // 데이터에 혼동이 생길것으로 예상되어, 저는 실행하지 않는 쪽으로 결정내렸습니다.
-        // self::$insertCache = [];
-
-        // foreach(self::$previousMultiTags as $previous) {
-        //     $startedAt = is_null($previous['ended_at'] ?? null) ? null : Carbon::create($previous['ended_at']);
-        //     $startState = $previous['end_state'] ?? null;
-
-        //     $type = $startedAt == null ? null : MultiTag::query()
-                // ->where('EQPID', $eqpId)
-                // ->where('TAG_Type', 'Control_State')
-                // ->where('EventTime', '<=', $startedAt)
-                // ->orderBy('EventTime', 'DESC')
-                // ->first()
-                // ?->getAttribute('TAG_Value');
-
-        //     $previous = [
-        //         'equipment_id' => $previous['equipment_id'],
-        //         'type' => $type,
-        //         'started_at' => $startedAt,
-        //         'start_state' => $startState,
-        //         'ended_at' => null,
-        //         'end_state' => null,
-        //         'maintain_time' => null,
-        //         'pause_type' => null,
-        //         'pause_reason' => null,
-        //         'pause_interval' => null,
-        //         'alarm_started_at' => null,
-        //         'alarm_ended_at' => null,
-        //         'alarm_code' => null,
-        //         'alarm_maintain_time' => null,
-        //     ];
-
-        //     self::$insertCache[] = $previous;
-        // }
-
-        // Processed::query()->insert(self::$insertCache);
 
         $totalEndedAt = Carbon::now();
 
