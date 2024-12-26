@@ -4,8 +4,18 @@
 
 1. `.env` 설정
 2. `\App\Services\Connections\MdwConnection` 설정
-3. `php artisan migrate` 실행
-4. `php artisan orange:test` 실행
+3. `composer update` 실행
+4. `php artisan migrate` 실행
+
+## 커맨드
+
+### 1. `php artisan orange:query-only`
+
+-   모든 데이터를 가장 단순한 방법으로 생성하는 커맨드 (값이 필요할 때 마다 쿼리를 통해서 호출)
+
+### 2. `php artisan orange:optimized`
+
+-   가장 최적화 된 방법으로 수행하는 커맨드
 
 ## 테스트 기록
 
@@ -35,6 +45,8 @@
 ```
 
 ### 요구사항 재확인 후 테스트
+
+-   해당 테스트에서는 일부 항목을 가져올 때 EQPID의 탐색이 누락되어있음을 확인했습니다.
 
 ```shell
 "total time : 1274.8751"
