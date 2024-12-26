@@ -48,8 +48,6 @@ class QueryOnly extends Command
         self::$currentCount = 0;
         self::$totalStartedAt = Carbon::now();
 
-        // use DP?
-
         // 1. 정합
         // 2. 속도
 

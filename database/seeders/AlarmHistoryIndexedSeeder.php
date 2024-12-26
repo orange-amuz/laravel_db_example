@@ -22,7 +22,7 @@ class AlarmHistoryIndexedSeeder extends Seeder
             ->count();
         self::$current = 0;
 
-        dump('\n');
+        dump("\n");
 
         AlarmHistory::query()
             ->orderBy('EventTime', 'ASC')

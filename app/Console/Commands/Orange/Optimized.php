@@ -6,7 +6,6 @@ use App\Models\AlarmHistoryIndexed;
 use App\Models\MultiTag;
 use App\Models\MultiTagIndexed;
 use App\Models\Processed;
-use App\Services\CacheService;
 use Carbon\Carbon;
 use Database\Seeders\AlarmHistoryIndexedSeeder;
 use Database\Seeders\MultiTagIndexedSeeder;
@@ -58,7 +57,7 @@ class Optimized extends Command
         //    - where 절의 순서가 복합 index로 등록된 column의 순서와 동일하다.
         //    - 이 커맨드에서 검색을 진행하는 컬럼은 모두 복합 index로 등록 되어있다.
         // 하지만 저장소를 더 많이 사용한다는 단점이 있으며, 로컬 환경에 따라서 추가적인 속도 차이가 발생할 수 있다.
-        // 현재의 로컬 환경에서 데이터를 찾기 위한 시간복잡도를 O(logN) 보다 줄일 방법을 찾을수가 없다.
+        // 현재의 속도보다 더 빠르게 탐색을 하기 위해서는 O(1)의 시간복잡도가 걸리는 방식을 찾아야 할 것으로 보인다.
         (new AlarmHistoryIndexedSeeder)->run(self::$totalStartedAt);
         (new MultiTagIndexedSeeder)->run(self::$totalStartedAt);
 
@@ -183,8 +182,6 @@ class Optimized extends Command
                 Processed::query()->insert(self::$insertCache);
 
                 self::$insertCache = array();
-
-                // dump(self::$totalStartedAt->diffInMilliseconds(Carbon::now()) / 1000);
             });
 
         $totalEndedAt = Carbon::now();

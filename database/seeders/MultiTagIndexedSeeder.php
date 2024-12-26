@@ -23,7 +23,7 @@ class MultiTagIndexedSeeder extends Seeder
             ->count();
         self::$current = 0;
 
-        dump('\n');
+        dump("\n");
 
         MultiTag::query()
             ->whereIn('TAG_Type', ['Equipment_State', 'Auto_Stop', 'Manual_Stop', 'Down_MCC', 'Control_State'])

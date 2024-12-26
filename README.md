@@ -13,6 +13,10 @@
 
 -   모든 데이터를 가장 단순한 방법으로 생성하는 커맨드 (값이 필요할 때 마다 쿼리를 통해서 호출)
 
+### 2. `php artisan orange:with-cache`
+
+-   일부 데이터를 미리 가져온 상태에서 컬렉션에서 탐색하는 커맨드
+
 ### 2. `php artisan orange:optimized`
 
 -   가장 최적화 된 방법으로 수행하는 커맨드
@@ -52,16 +56,26 @@
 "total time : 1274.8751"
 ```
 
-### 인덱스 추가 후
-
-#### 이미 seed가 된 상태에서 커맨드를 통해 Processed만 추가했을 경우
+### orange:query-only
 
 ```shell
-"total time : 142.482294"
+"total time : 5577.486758"
 ```
 
-#### seed도 함께 진행했을 경우
+### orange:optimized
 
 ```shell
 "total time : 309.774007"
+```
+
+### orange:with-cache
+
+```shell
+"total time : 641.437134"
+```
+
+### 인덱스된 다른 db에서 orange:query-only와 동일한 로직을 실행할경우
+
+```shell
+"total time : 447.259331"
 ```
