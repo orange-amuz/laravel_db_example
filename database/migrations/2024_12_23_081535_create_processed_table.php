@@ -26,7 +26,7 @@ return new class extends Migration
             $table->float('maintain_time')->comment('상태 유지 시간')->nullable();
 
             $table->string('pause_type')->comment('정지 유형')->nullable();
-            $table->integer('pause_reason')->comment('정지 사유')->nullable();
+            $table->string('pause_reason')->comment('정지 사유')->nullable();
             $table->integer('pause_interval')->comment('정지 구간')->nullable();
 
             $table->timestamp('alarm_started_at', precision: 3)->comment('알람 시작')->nullable();

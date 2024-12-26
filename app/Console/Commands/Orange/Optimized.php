@@ -117,8 +117,8 @@ class Optimized extends Command
                             ->orderBy('event_time', 'ASC')
                             ->first();
 
-                        $pauseReason = $pause?->getAttribute('TAG_Value');
-                        $pauseType = $pause?->getAttribute('TAG_Type');
+                        $pauseReason = $pause?->getAttribute('tag_type');
+                        $pauseType = $pause?->getAttribute('tag_value');
 
                         $pauseRange = MultiTagIndexed::query()
                             ->where('equipment_id', $eqpId)
@@ -128,7 +128,7 @@ class Optimized extends Command
                             ->orderBy('event_time', 'ASC')
                             ->first();
 
-                        $pauseInterval = $pauseRange?->getAttribute('TAG_Value');
+                        $pauseInterval = $pauseRange?->getAttribute('tag_value');
 
                         $alarm = AlarmHistoryIndexed::query()
                             ->where('equipment_id', $eqpId)
@@ -137,8 +137,8 @@ class Optimized extends Command
                             ->where('event_time', '<=', $endedAt)
                             ->orderBy('event_time', 'ASC')
                             ->first();
-                        $alarmStartedAt = $alarm?->getAttribute('EventTime');
-                        $alarmCode = $alarm?->getAttribute('AlarmCode');
+                        $alarmStartedAt = $alarm?->getAttribute('event_time');
+                        $alarmCode = $alarm?->getAttribute('alarm_code');
 
                         if($alarmStartedAt != null) {
                             $alarmEndedAt = AlarmHistoryIndexed::query()
@@ -146,9 +146,9 @@ class Optimized extends Command
                                 ->where('alarm_code', $alarmCode)
                                 ->where('event_flag', 'E')
                                 ->where('event_time', '>=', $alarmStartedAt)
-                                ->orderBy('evnet_time', 'ASC')
+                                ->orderBy('event_time', 'ASC')
                                 ->first()
-                                ?->getAttribute('EventTime');
+                                ?->getAttribute('event_time');
                         }
 
                         // TODO : $alarmEndedAt 이 null일 경우 스케줄러 작동하기
