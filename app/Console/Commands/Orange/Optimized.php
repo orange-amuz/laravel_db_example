@@ -31,8 +31,6 @@ class Optimized extends Command
 
     public static array $previousMultiTags;
 
-    public static Collection $tagTypes;
-
     public static array $insertCache = array();
 
     public static Carbon $totalStartedAt;
@@ -50,7 +48,6 @@ class Optimized extends Command
         AlarmHistoryIndexed::query()->truncate();
         MultiTagIndexed::query()->truncate();
 
-        self::$tagTypes = Collection::empty();
         self::$previousMultiTags = array();
         self::$totalCount = MultiTag::query()->where('TAG_Type', 'Equipment_State')->count();
         self::$currentCount = 0;

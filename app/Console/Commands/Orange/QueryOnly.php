@@ -28,9 +28,7 @@ class QueryOnly extends Command
 
     public static array $previousMultiTags;
 
-    public static Collection $tagTypes;
-
-    public static array $insertCache = array();
+    public static array $insertCache = [];
 
     public static Carbon $totalStartedAt;
     public static int $totalCount;
@@ -43,13 +41,9 @@ class QueryOnly extends Command
     {
         ini_set('memory_limit', -1);
 
-        self::$tagTypes = Collection::empty();
-        self::$previousMultiTags = array();
-
-        CacheService::boot();
-
         Processed::query()->truncate();
 
+        self::$previousMultiTags = array();
         self::$totalCount = MultiTag::query()->where('TAG_Type', 'Equipment_State')->count();
         self::$currentCount = 0;
         self::$totalStartedAt = Carbon::now();
