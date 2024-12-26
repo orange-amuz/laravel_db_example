@@ -28,7 +28,6 @@ return new class extends Migration
 
             $table->timestamps();
 
-
             // 검색 최적화를 위해 인덱스 추가
             $table->index(['equipment_id', 'tag_type', 'event_time']);
         });
